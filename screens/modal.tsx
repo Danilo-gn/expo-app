@@ -6,7 +6,7 @@ export default function Modal() {
   return (
     <>
       <ScreenContent path="screens/modal.tsx" title="Modal" />
-      <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
+      <StatusBar style={Platform.OS === 'ios' ? 'dark' : 'auto'} />
     </>
   );
 }

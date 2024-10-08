@@ -1,9 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StackScreenProps } from '@react-navigation/stack';
-
+import AntDesign from 'react-native-vector-icons/AntDesign'; // Importa a biblioteca de ícones
 import { RootStackParamList } from '.';
-import { HeaderButton } from '../components/HeaderButton';
-import { TabBarIcon } from '../components/TabBarIcon';
 import One from '../screens/one';
 import Two from '../screens/two';
 
@@ -14,25 +12,39 @@ type Props = StackScreenProps<RootStackParamList, 'TabNavigator'>;
 export default function TabLayout({ navigation }: Props) {
   return (
     <Tab.Navigator
-      screenOptions={{
-        tabBarActiveTintColor: 'black',
-      }}>
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ color, size }) => {
+          let iconName: string = 'help';
+
+          if (route.name === 'One') {
+            iconName = 'clockcircleo';  // Ícone da tela "One"
+          } else if (route.name === 'Two') {
+            iconName = 'wallet';  // Ícone da tela "Two"
+          }
+
+          // Retorna o ícone correspondente com base no nome da rota
+          return <AntDesign name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#06B6D4',  // Cyan-500
+        tabBarInactiveTintColor: '#CBD5E1',  // Slate-400
+        tabBarStyle: {
+          backgroundColor: '#1E293B',  // Slate-800
+        },
+        headerStyle: {
+          backgroundColor: '#1E293B', // Slate-800: Cor de fundo do header
+        },
+        headerTintColor: '#F8FAFC',
+      })}
+    >
       <Tab.Screen
         name="One"
         component={One}
-        options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => <HeaderButton onPress={() => navigation.navigate('Modal')} />,
-        }}
+        options={{ title: 'Rotina' }}
       />
       <Tab.Screen
         name="Two"
         component={Two}
-        options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-        }}
+        options={{ title: 'Finanças' }}
       />
     </Tab.Navigator>
   );

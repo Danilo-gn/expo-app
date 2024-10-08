@@ -3,7 +3,7 @@ module.exports = {
   content: [
     './App.{js,ts,tsx}',
     './components/**/*.{js,ts,tsx}',
-    './screens/**/*.{js,ts,tsx}',
+    './screens/one.tsx',
     './navigation/**/*.{js,ts,tsx}',
   ],
 
