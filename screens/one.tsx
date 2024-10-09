@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, FlatList, Alert, TextInput, Text, Modal, Animated, TouchableOpacity } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Checkbox } from 'react-native-paper';
 import { ScreenContent } from 'components/ScreenContent';
+import { db, authenticateUser } from 'firebaseConfig'; // Importa o Firestore configurado
+import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface Item {
   title: string;
@@ -18,7 +20,55 @@ export default function TabOneScreen() {
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showCreateRoutine, setShowCreateRoutine] = useState(false); // Controle de visibilidade
   const [animationOpacity] = useState(new Animated.Value(0));  // Valor de opacidade animado
+  const [userId, setUserId] = useState<string | null>(null); // Armazenar UID
+
+  useEffect(() => {
+    const authenticateAndLoadData = async () => {
+      try {
+        const user = await authenticateUser(); // Autenticar e obter usuário
+        setUserId(user.uid); // Definir o UID do usuário
+        loadItemsFromFirestore(user.uid); // Carregar itens do Firestore para o UID
+      } catch (error) {
+        console.error('Erro ao autenticar usuário: ', error);
+      }
+    };
+
+    authenticateAndLoadData();
+  }, []);
+
+  const loadItemsFromFirestore = async (uid: string) => {
+    try {
+      const docRef = doc(db, 'routines', uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data && data.items) {
+          const itemsFromFirestore = data.items.map((item: any) => ({
+            ...item,
+            time: new Date(item.time), // Converte o timestamp para Date
+          }));
+          setItems(itemsFromFirestore);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar itens do Firestore: ', error);
+    }
+  };
+
+  const saveItemsToFirestore = async (updatedItems: Item[], uid: string) => {
+    try {
+      const itemsToSave = updatedItems.map(item => ({
+        ...item,
+        time: item.time.getTime(), // Converte Date para timestamp
+      }));
+
+      await setDoc(doc(db, 'routines', uid), { items: itemsToSave });
+    } catch (error) {
+      console.error('Erro ao salvar itens no Firestore: ', error);
+    }
+  };
 
   const addItem = () => {
     if (inputValue.trim()) {
@@ -27,12 +77,22 @@ export default function TabOneScreen() {
         time: selectedTime,
         done: false,
       };
-      setItems((prevItems) => [...prevItems, newItem]);
+      const updatedItems = [...items, newItem];
+      setItems(sortItemsByTime(updatedItems)); // Ordenar os itens após adicionar
       setInputValue('');
       setShowTimePicker(false);
+      setShowCreateRoutine(false); // Esconder a seção após adicionar
+
+      if (userId) {
+        saveItemsToFirestore(updatedItems, userId); // Salvar os itens no Firestore
+      }
     } else {
-      Alert.alert("Digite um valor válido!");
+      Alert.alert('Digite um valor válido!');
     }
+  };
+
+  const sortItemsByTime = (items: Item[]) => {
+    return items.sort((a, b) => a.time.getTime() - b.time.getTime());
   };
 
   const openEditModal = (index: number) => {
@@ -48,7 +108,7 @@ export default function TabOneScreen() {
       const updatedItems = items.map((item, idx) => 
         idx === editIndex ? { ...item, title: inputValue.trim(), time: selectedTime } : item
       );
-      setItems(updatedItems);
+      setItems(sortItemsByTime(updatedItems)); // Ordenar os itens após editar
       setInputValue('');
       setModalVisible(false);
       setEditIndex(null);
@@ -58,32 +118,28 @@ export default function TabOneScreen() {
   };
 
   const deleteItem = (index: number) => {
-    Alert.alert(
-      "Confirmar Exclusão",
-      "Você tem certeza que deseja excluir este item?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir",
-          onPress: () => {
-            const updatedItems = items.filter((_, idx) => idx !== index);
-            setItems(updatedItems);
-          },
-        },
-      ]
-    );
+    const updatedItems = items.filter((_, idx) => idx !== index);
+    setItems(sortItemsByTime(updatedItems)); // Ordenar os itens após excluir
+
+    if (userId) {
+      saveItemsToFirestore(updatedItems, userId); // Salvar os itens no Firestore
+    }
   };
 
   const toggleDone = (index: number) => {
-    const updatedItems = items.map((item, idx) => 
+    const updatedItems = items.map((item, idx) =>
       idx === index ? { ...item, done: !item.done } : item
     );
-    setItems(updatedItems);
+    setItems(sortItemsByTime(updatedItems)); // Ordenar os itens após alterar o estado 'done'
+
+    if (userId) {
+      saveItemsToFirestore(updatedItems, userId); // Salvar os itens no Firestore
+    }
   };
 
   const confirmTime = () => {
     setSelectedTime(tempTime);
-    hideDateTimePickerWithAnimation();
+    setShowTimePicker(false);
   };
 
   // Função para mostrar o DateTimePicker com animação
@@ -106,47 +162,64 @@ export default function TabOneScreen() {
   };
 
   return (
-    <View className="flex-1 p-5 bg-slate-800">
-      <ScreenContent path="screens/one.tsx" title="Rotina" />
+    <View className="flex px-4 h-screen bg-slate-800 justify-start items-stretch">
+      <View className="p-5">
+        <ScreenContent path="screens/one.tsx" title="Rotina" />
 
-      <TextInput
-        value={inputValue}
-        onChangeText={setInputValue}
-        placeholder="Digite um novo item"
-        className="border border-cyan-500 p-3 mt-4 rounded-xl text-cyan-500 placeholder-cyan-500"
-        placeholderTextColor="#CBD5E1"
-      />
+        {/* Botão para mostrar/ocultar a criação de rotina */}
+        <TouchableOpacity
+          onPress={() => setShowCreateRoutine(!showCreateRoutine)}
+          className="bg-cyan-500 p-3 rounded-xl mt-4"
+        >
+          <Text className="text-slate-800 text-center">
+            {showCreateRoutine ? 'Tudo Pronto!' : 'Criar Rotina'}
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={showDateTimePickerWithAnimation} className="bg-cyan-500 p-3 rounded-xl mt-4">
-        <Text className="text-slate-800 text-center">Selecionar Horário</Text>
-      </TouchableOpacity>
+        {/* Seção de criação de rotina, visível apenas quando o botão for clicado */}
+        {showCreateRoutine && (
+          <View className="mt-4">
+            <TextInput
+              value={inputValue}
+              onChangeText={setInputValue}
+              placeholder="Digite um novo item"
+              className="border border-cyan-500 p-3 mt-4 rounded-xl text-cyan-500 placeholder-cyan-500"
+              placeholderTextColor="#CBD5E1"
+            />
 
-      {showTimePicker && (
-        <Animated.View style={{ opacity: animationOpacity }} className="mt-4 items-center flex flex-row justify-center mx-8">
-          <DateTimePicker
-            value={tempTime}
-            mode="time"
-            is24Hour={true}
-            display="default"
-            onChange={(event, date) => {
-              if (date) setTempTime(date);
-            }}
-          />
-          <TouchableOpacity onPress={confirmTime} className="bg-rose-400 p-3 rounded-xl mx-8 w-24">
-            <Text className="text-slate-800 text-center">OK</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={hideDateTimePickerWithAnimation} className="bg-rose-400 p-3 rounded-xl w-24">
-            <Text className="text-slate-800 text-center">Cancelar</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
+            <TouchableOpacity onPress={showDateTimePickerWithAnimation} className="bg-cyan-500 p-3 rounded-xl mt-4">
+              <Text className="text-slate-800 text-center">Selecionar Horário</Text>
+            </TouchableOpacity>
 
-      <TouchableOpacity onPress={addItem} className="bg-cyan-500 p-3 rounded-xl mt-4">
-        <Text className="text-slate-800 text-center">Adicionar Item</Text>
-      </TouchableOpacity>
+            {showTimePicker && (
+              <Animated.View style={{ opacity: animationOpacity }} className="mt-4 items-center flex flex-row justify-center mx-8">
+                <DateTimePicker
+                  value={tempTime}
+                  mode="time"
+                  is24Hour={true}
+                  display="default"
+                  onChange={(event, date) => {
+                    if (date) setTempTime(date);
+                  }}
+                />
+                <TouchableOpacity onPress={confirmTime} className="bg-rose-400 p-3 rounded-xl mx-8 w-24">
+                  <Text className="text-slate-800 text-center">OK</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={hideDateTimePickerWithAnimation} className="bg-rose-400 p-3 rounded-xl w-24">
+                  <Text className="text-slate-800 text-center">Cancelar</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+
+            <TouchableOpacity onPress={addItem} className="bg-cyan-500 p-3 rounded-xl mt-4">
+              <Text className="text-slate-800 text-center">Adicionar Item</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
       <FlatList
-        className='mt-8'
+        className="flex-1 mt-8"
         data={items}
         keyExtractor={(item, index) => index.toString()}
         renderItem={({ item, index }) => (
@@ -183,20 +256,20 @@ export default function TabOneScreen() {
           setModalVisible(false);
         }}
       >
-        <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-          <View className="bg-white p-5 rounded w-4/5">
+        <View className="flex-1 justify-center items-center bg-slate-800 bg-opacity-50">
+          <View className="bg-slate-700 p-5 rounded w-4/5">
             <TextInput
               value={inputValue}
               onChangeText={setInputValue}
               placeholder="Digite o novo valor"
-              className="border border-gray-300 p-3 mb-4 rounded"
+              className="border border-cyan-500 p-3 rounded-xl text-cyan-500 placeholder-cyan-500"
             />
-            <TouchableOpacity onPress={() => setShowTimePicker(true)} className="bg-blue-500 p-3 rounded mt-4">
-              <Text className="text-white text-center">Selecionar Horário</Text>
+            <TouchableOpacity onPress={() => setShowTimePicker(true)} className="bg-cyan-500 p-3 rounded-xl mt-4">
+              <Text className="text-slate-800 text-center">Selecionar Horário</Text>
             </TouchableOpacity>
 
             {showTimePicker && (
-              <View className="mt-4">
+              <View className="mt-4 items-center flex flex-row justify-center mx-8">
                 <DateTimePicker
                   value={tempTime}
                   mode="time"
@@ -206,20 +279,20 @@ export default function TabOneScreen() {
                     if (date) setTempTime(date);
                   }}
                 />
-                <TouchableOpacity onPress={confirmTime} className="bg-green-500 p-3 rounded mt-3">
-                  <Text className="text-white text-center">OK</Text>
+                <TouchableOpacity onPress={confirmTime} className="bg-rose-400 p-3 rounded-xl mx-8 w-24">
+                  <Text className="text-slate-800 text-center">OK</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setShowTimePicker(false)} className="bg-red-500 p-3 rounded mt-2">
-                  <Text className="text-white text-center">Cancelar</Text>
+                <TouchableOpacity onPress={() => setShowTimePicker(false)} className="bg-rose-400 p-3 rounded-xl w-24">
+                  <Text className="text-slate-800 text-center">Cancelar</Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            <TouchableOpacity onPress={saveEdit} className="bg-green-500 p-3 rounded mt-4">
-              <Text className="text-white text-center">Salvar</Text>
+            <TouchableOpacity onPress={saveEdit} className="bg-cyan-500 p-3 rounded-xl mt-4">
+              <Text className="text-slate-800 text-center">Salvar</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setModalVisible(false)} className="bg-red-500 p-3 rounded mt-2">
-              <Text className="text-white text-center">Cancelar</Text>
+            <TouchableOpacity onPress={() => setModalVisible(false)} className="bg-cyan-500 p-3 rounded-xl mt-4">
+              <Text className="text-slate-800 text-center">Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
