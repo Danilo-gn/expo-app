@@ -112,9 +112,13 @@ export default function TabOneScreen() {
       setInputValue('');
       setModalVisible(false);
       setEditIndex(null);
+      if (userId) {
+        saveItemsToFirestore(updatedItems, userId); // Salvar os itens no Firestore
+      }
     } else {
       Alert.alert("Digite um valor válido!");
     }
+    
   };
 
   const deleteItem = (index: number) => {
