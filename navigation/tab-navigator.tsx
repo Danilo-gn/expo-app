@@ -22,7 +22,7 @@ export default function TabLayout({ navigation }: Props) {
           } else if (route.name === 'Two') {
             iconName = 'wallet';  // Ícone da tela "Two"
           } else if (route.name === 'Three') {
-            iconName = 'wallet';  // Ícone da tela "Three"
+            iconName = 'calendar';  // Ícone da tela "Three"
           }
 
           // Retorna o ícone correspondente com base no nome da rota
