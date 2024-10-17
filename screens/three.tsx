@@ -37,7 +37,8 @@ export default function EventosScreen() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data && data.events) {
-          setEvents(data.events);
+          const sortedEvents = sortEventsByDate(data.events);
+          setEvents(sortedEvents);
         }
       }
     } catch (error) {
@@ -53,15 +54,21 @@ export default function EventosScreen() {
     }
   };
 
+  const sortEventsByDate = (events: Event[]) => {
+    return events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  };
+
   const addEvent = () => {
     if (selectedDate && description.trim()) {
       const newEvent: Event = { date: selectedDate, description: description.trim() };
       const updatedEvents = [...events, newEvent];
-      setEvents(updatedEvents);
+      const sortedEvents = sortEventsByDate(updatedEvents);
+
+      setEvents(sortedEvents);
       setDescription('');
       setModalVisible(false);
 
-      if (userId) saveEventsToFirestore(updatedEvents, userId);
+      if (userId) saveEventsToFirestore(sortedEvents, userId);
     } else {
       Alert.alert('Erro', 'Selecione uma data e digite uma descrição válida.');
     }
@@ -69,7 +76,7 @@ export default function EventosScreen() {
 
   const deleteEvent = (index: number) => {
     const updatedEvents = events.filter((_, idx) => idx !== index);
-    setEvents(updatedEvents);
+    setEvents(sortEventsByDate(updatedEvents));
 
     if (userId) saveEventsToFirestore(updatedEvents, userId);
   };
@@ -77,10 +84,7 @@ export default function EventosScreen() {
   const renderEvent = ({ item, index }: { item: Event; index: number }) => (
     <View className="flex-row justify-between items-center py-2 border-b border-gray-200">
       <Text className="text-white">{`${item.date} - ${item.description}`}</Text>
-      <TouchableOpacity
-        onPress={() => deleteEvent(index)}
-        className="bg-red-500 p-2 rounded-xl"
-      >
+      <TouchableOpacity onPress={() => deleteEvent(index)} className="bg-red-500 p-2 rounded-xl">
         <Text className="text-white">Excluir</Text>
       </TouchableOpacity>
     </View>
