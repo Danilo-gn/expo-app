@@ -4,6 +4,7 @@ import AntDesign from 'react-native-vector-icons/AntDesign'; // Importa a biblio
 import { RootStackParamList } from '.';
 import One from '../screens/one';
 import Two from '../screens/two';
+import Three from '../screens/three';
 
 const Tab = createBottomTabNavigator();
 
@@ -20,6 +21,8 @@ export default function TabLayout({ navigation }: Props) {
             iconName = 'clockcircleo';  // Ícone da tela "One"
           } else if (route.name === 'Two') {
             iconName = 'wallet';  // Ícone da tela "Two"
+          } else if (route.name === 'Three') {
+            iconName = 'wallet';  // Ícone da tela "Three"
           }
 
           // Retorna o ícone correspondente com base no nome da rota
@@ -45,6 +48,11 @@ export default function TabLayout({ navigation }: Props) {
         name="Two"
         component={Two}
         options={{ title: 'Finanças' }}
+      />
+      <Tab.Screen
+        name="Three"
+        component={Three}
+        options={{ title: 'Eventos' }}
       />
     </Tab.Navigator>
   );
