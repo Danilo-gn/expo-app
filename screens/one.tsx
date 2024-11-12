@@ -3,7 +3,7 @@ import { View, FlatList, Alert, TextInput, Text, Modal, Animated, TouchableOpaci
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Checkbox } from 'react-native-paper';
 import { ScreenContent } from 'components/ScreenContent';
-import { db, authenticateUser } from 'firebaseConfig'; // Importa o Firestore configurado
+import { db, authenticateUser } from 'firebaseConfig';
 import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface Item {
@@ -20,16 +20,16 @@ export default function TabOneScreen() {
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showCreateRoutine, setShowCreateRoutine] = useState(false); // Controle de visibilidade
-  const [animationOpacity] = useState(new Animated.Value(0));  // Valor de opacidade animado
-  const [userId, setUserId] = useState<string | null>(null); // Armazenar UID
+  const [showCreateRoutine, setShowCreateRoutine] = useState(false);
+  const [animationOpacity] = useState(new Animated.Value(0));
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const authenticateAndLoadData = async () => {
       try {
-        const user = await authenticateUser(); // Autenticar e obter usuário
-        setUserId(user.uid); // Definir o UID do usuário
-        loadItemsFromFirestore(user.uid); // Carregar itens do Firestore para o UID
+        const user = await authenticateUser();
+        setUserId(user.uid);
+        loadItemsFromFirestore(user.uid);
       } catch (error) {
         console.error('Erro ao autenticar usuário: ', error);
       }
@@ -47,7 +47,7 @@ export default function TabOneScreen() {
         if (data && data.items) {
           const itemsFromFirestore = data.items.map((item: any) => ({
             ...item,
-            time: new Date(item.time), // Converte o timestamp para Date
+            time: new Date(item.time),
           }));
           setItems(itemsFromFirestore);
         }
@@ -61,9 +61,8 @@ export default function TabOneScreen() {
     try {
       const itemsToSave = updatedItems.map(item => ({
         ...item,
-        time: item.time.getTime(), // Converte Date para timestamp
+        time: item.time.getTime(),
       }));
-
       await setDoc(doc(db, 'routines', uid), { items: itemsToSave });
     } catch (error) {
       console.error('Erro ao salvar itens no Firestore: ', error);
@@ -78,13 +77,13 @@ export default function TabOneScreen() {
         done: false,
       };
       const updatedItems = [...items, newItem];
-      setItems(sortItemsByTime(updatedItems)); // Ordenar os itens após adicionar
+      setItems(sortItemsByTime(updatedItems));
       setInputValue('');
       setShowTimePicker(false);
-      setShowCreateRoutine(false); // Esconder a seção após adicionar
+      setShowCreateRoutine(false);
 
       if (userId) {
-        saveItemsToFirestore(updatedItems, userId); // Salvar os itens no Firestore
+        saveItemsToFirestore(updatedItems, userId);
       }
     } else {
       Alert.alert('Digite um valor válido!');
@@ -108,25 +107,23 @@ export default function TabOneScreen() {
       const updatedItems = items.map((item, idx) => 
         idx === editIndex ? { ...item, title: inputValue.trim(), time: selectedTime } : item
       );
-      setItems(sortItemsByTime(updatedItems)); // Ordenar os itens após editar
+      setItems(sortItemsByTime(updatedItems));
       setInputValue('');
       setModalVisible(false);
       setEditIndex(null);
       if (userId) {
-        saveItemsToFirestore(updatedItems, userId); // Salvar os itens no Firestore
+        saveItemsToFirestore(updatedItems, userId);
       }
     } else {
       Alert.alert("Digite um valor válido!");
     }
-    
   };
 
   const deleteItem = (index: number) => {
     const updatedItems = items.filter((_, idx) => idx !== index);
-    setItems(sortItemsByTime(updatedItems)); // Ordenar os itens após excluir
-
+    setItems(sortItemsByTime(updatedItems));
     if (userId) {
-      saveItemsToFirestore(updatedItems, userId); // Salvar os itens no Firestore
+      saveItemsToFirestore(updatedItems, userId);
     }
   };
 
@@ -134,10 +131,9 @@ export default function TabOneScreen() {
     const updatedItems = items.map((item, idx) =>
       idx === index ? { ...item, done: !item.done } : item
     );
-    setItems(sortItemsByTime(updatedItems)); // Ordenar os itens após alterar o estado 'done'
-
+    setItems(sortItemsByTime(updatedItems));
     if (userId) {
-      saveItemsToFirestore(updatedItems, userId); // Salvar os itens no Firestore
+      saveItemsToFirestore(updatedItems, userId);
     }
   };
 
@@ -146,23 +142,38 @@ export default function TabOneScreen() {
     setShowTimePicker(false);
   };
 
-  // Função para mostrar o DateTimePicker com animação
   const showDateTimePickerWithAnimation = () => {
     setShowTimePicker(true);
     Animated.timing(animationOpacity, {
-      toValue: 1,   // Define a opacidade como 1 (visível)
-      duration: 300, // Duração de 300ms
+      toValue: 1,
+      duration: 300,
       useNativeDriver: true,
     }).start();
   };
 
-  // Função para ocultar o DateTimePicker com animação
   const hideDateTimePickerWithAnimation = () => {
     Animated.timing(animationOpacity, {
-      toValue: 0,   // Define a opacidade como 0 (invisível)
-      duration: 300, // Duração de 300ms
+      toValue: 0,
+      duration: 300,
       useNativeDriver: true,
-    }).start(() => setShowTimePicker(false));  // Após a animação, oculta o picker
+    }).start(() => setShowTimePicker(false));
+  };
+
+  // Função para limpar todos os itens da lista
+  const clearAllItems = () => {
+    setItems([]);
+    if (userId) {
+      saveItemsToFirestore([], userId);
+    }
+  };
+
+  // Função para desmarcar todos os itens
+  const uncheckAllItems = () => {
+    const updatedItems = items.map(item => ({ ...item, done: false }));
+    setItems(sortItemsByTime(updatedItems));
+    if (userId) {
+      saveItemsToFirestore(updatedItems, userId);
+    }
   };
 
   return (
@@ -170,7 +181,6 @@ export default function TabOneScreen() {
       <View className="p-5">
         <ScreenContent path="screens/one.tsx" title="Rotina" />
 
-        {/* Botão para mostrar/ocultar a criação de rotina */}
         <TouchableOpacity
           onPress={() => setShowCreateRoutine(!showCreateRoutine)}
           className="bg-cyan-500 p-3 rounded-xl mt-4"
@@ -180,7 +190,6 @@ export default function TabOneScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Seção de criação de rotina, visível apenas quando o botão for clicado */}
         {showCreateRoutine && (
           <View className="mt-4">
             <TextInput
@@ -218,6 +227,14 @@ export default function TabOneScreen() {
             <TouchableOpacity onPress={addItem} className="bg-cyan-500 p-3 rounded-xl mt-4">
               <Text className="text-slate-800 text-center">Adicionar Item</Text>
             </TouchableOpacity>
+
+            {/* Botões para limpar e desmarcar todos os itens */}
+            <TouchableOpacity onPress={clearAllItems} className="bg-rose-500 p-3 rounded-xl mt-4">
+              <Text className="text-slate-800 text-center">Limpar Lista</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={uncheckAllItems} className="bg-yellow-500 p-3 rounded-xl mt-4">
+              <Text className="text-slate-800 text-center">Desmarcar Todos</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -232,8 +249,8 @@ export default function TabOneScreen() {
               <Checkbox
                 status={item.done ? 'checked' : 'unchecked'}
                 onPress={() => toggleDone(index)}
-                color="#06B6D4" // Cyan-500 quando marcada
-                uncheckedColor="#CBD5E1" // Slate-400 quando desmarcada
+                color="#06B6D4"
+                uncheckedColor="#CBD5E1"
               />
             </View>
             <Text className={`text-white ${item.done ? 'line-through' : ''}`}>
@@ -252,7 +269,6 @@ export default function TabOneScreen() {
         )}
       />
 
-      {/* Modal para edição */}
       <Modal
         transparent={true}
         visible={modalVisible}

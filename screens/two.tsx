@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, FlatList, Alert, TextInput, Text, Modal, Animated, TouchableOpacity } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Checkbox } from 'react-native-paper';
-import { db, authenticateUser } from 'firebaseConfig'; // Importa o Firestore configurado
+import { db, authenticateUser } from 'firebaseConfig';
 import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface FinanceItem {
   title: string;
   value: number;
+  month: number;
   done: boolean;
 }
 
@@ -14,6 +16,7 @@ export default function FinanceScreen() {
   const [items, setItems] = useState<FinanceItem[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [price, setPrice] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [showCreateFinance, setShowCreateFinance] = useState(false);
@@ -23,7 +26,7 @@ export default function FinanceScreen() {
   useEffect(() => {
     const authenticateAndLoadData = async () => {
       try {
-        const user = await authenticateUser(); // Autenticar e obter usuário
+        const user = await authenticateUser();
         setUserId(user.uid);
         loadItemsFromFirestore(user.uid);
       } catch (error) {
@@ -63,10 +66,11 @@ export default function FinanceScreen() {
       const newItem = {
         title: inputValue.trim(),
         value,
+        month: selectedMonth,
         done: false,
       };
       const updatedItems = [...items, newItem];
-      setItems(sortItemsByValue(updatedItems));
+      setItems(sortItemsByMonthAndValue(updatedItems));
       setInputValue('');
       setPrice('');
       setShowCreateFinance(false);
@@ -79,15 +83,24 @@ export default function FinanceScreen() {
     }
   };
 
-  const sortItemsByValue = (items: FinanceItem[]) => {
-    return items.sort((a, b) => b.value - a.value);
+  const sortItemsByMonthAndValue = (items: FinanceItem[]) => {
+    const currentMonth = new Date().getMonth() + 1;
+    return items.sort((a, b) => {
+      const adjustedMonthA = a.month < currentMonth ? a.month + 12 : a.month;
+      const adjustedMonthB = b.month < currentMonth ? b.month + 12 : b.month;
+
+      if (adjustedMonthA !== adjustedMonthB) {
+        return adjustedMonthA - adjustedMonthB;
+      }
+      return b.value - a.value;
+    });
   };
 
   const toggleDone = (index: number) => {
     const updatedItems = items.map((item, idx) =>
       idx === index ? { ...item, done: !item.done } : item
     );
-    setItems(sortItemsByValue(updatedItems));
+    setItems(sortItemsByMonthAndValue(updatedItems));
 
     if (userId) {
       saveItemsToFirestore(updatedItems, userId);
@@ -96,7 +109,7 @@ export default function FinanceScreen() {
 
   const deleteItem = (index: number) => {
     const updatedItems = items.filter((_, idx) => idx !== index);
-    setItems(sortItemsByValue(updatedItems));
+    setItems(sortItemsByMonthAndValue(updatedItems));
 
     if (userId) {
       saveItemsToFirestore(updatedItems, userId);
@@ -133,6 +146,27 @@ export default function FinanceScreen() {
               className="border border-cyan-500 p-3 mt-4 rounded-xl text-cyan-500 placeholder-cyan-500"
               placeholderTextColor="#CBD5E1"
             />
+
+            {/* Picker para seleção do mês */}
+            <Picker
+              selectedValue={selectedMonth}
+              onValueChange={(itemValue) => setSelectedMonth(itemValue)}
+              style={{ backgroundColor: '#334155', color: '#06B6D4', marginTop: 10, height: 130, justifyContent: 'center', borderRadius: 20 }}
+            >
+              <Picker.Item label="Janeiro" value={1} />
+              <Picker.Item label="Fevereiro" value={2} />
+              <Picker.Item label="Março" value={3} />
+              <Picker.Item label="Abril" value={4} />
+              <Picker.Item label="Maio" value={5} />
+              <Picker.Item label="Junho" value={6} />
+              <Picker.Item label="Julho" value={7} />
+              <Picker.Item label="Agosto" value={8} />
+              <Picker.Item label="Setembro" value={9} />
+              <Picker.Item label="Outubro" value={10} />
+              <Picker.Item label="Novembro" value={11} />
+              <Picker.Item label="Dezembro" value={12} />
+            </Picker>
+
             <TouchableOpacity onPress={addItem} className="bg-cyan-500 p-3 rounded-xl mt-4">
               <Text className="text-slate-800 text-center">Adicionar</Text>
             </TouchableOpacity>
@@ -155,7 +189,7 @@ export default function FinanceScreen() {
               />
             </View>
             <Text className={`text-white ${item.done ? 'line-through' : ''}`}>
-              {item.title} - R${item.value.toFixed(2)}
+              {item.title} - R${item.value.toFixed(2)} - Mês: {item.month}
             </Text>
             <TouchableOpacity onPress={() => deleteItem(index)} className="bg-slate-100 p-2 rounded-xl">
               <Text className="text-slate-800">Excluir</Text>
